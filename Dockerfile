@@ -16,25 +16,27 @@ RUN apt-get clean && apt-get update && apt-get install -y \
 RUN apt-get install -y \
     xvfb libav-tools xorg-dev python-opengl swig
 
-RUN source activate rep_py2
+RUN bash --login -c "source activate rep_py2"
 
 # Install bleeding-edge Theano
-RUN pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
+RUN bash --login -c "pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git"
 
-RUN pip install --upgrade https://github.com/Lasagne/Lasagne/archive/master.zip
+RUN bash --login -c "pip install --upgrade https://github.com/Lasagne/Lasagne/archive/master.zip"
 
 # Install AgentNet
-RUN git clone https://github.com/yandexdataschool/AgentNet.git ~/AgentNet \
+RUN bash --login -c "git clone https://github.com/yandexdataschool/AgentNet.git ~/AgentNet \
     && cd ~/AgentNet \
     && pip install -r requirements.txt \
     && pip install -e .
+    "
 
 # Install OpenAI Gym
-RUN git clone https://github.com/openai/gym ~/gym \
+RUN bash --login -c "git clone https://github.com/openai/gym ~/gym \
     && cd ~/gym \
     && pip install -e .[all]
+    "
 
 # Some fancy packages
-RUN pip install tqdm seaborn
+RUN bash --login -c "pip install tqdm seaborn"
 
 WORKDIR /root
