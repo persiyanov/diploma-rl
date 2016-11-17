@@ -1,4 +1,4 @@
-FROM yandex/rep:0.6.6
+FROM yandex/rep:0.6.5
 MAINTAINER Dmitry Persiyanov <dmitry.persiyanov@gmail.com>
 
 RUN sed -i "s/httpredir.debian.org/`curl -s -D - http://httpredir.debian.org/demo/debian/ | awk '/^Link:/ { print $2 }' | sed -e 's@<http://\(.*\)/debian/>;@\1@g'`/" /etc/apt/sources.list
@@ -15,6 +15,8 @@ RUN apt-get clean && apt-get update && apt-get install -y \
 
 RUN apt-get install -y \
     xvfb libav-tools xorg-dev python-opengl swig
+
+RUN source activate rep_py2
 
 # Install bleeding-edge Theano
 RUN pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
