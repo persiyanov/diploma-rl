@@ -1,4 +1,4 @@
-FROM everware/science-python
+FROM yandex/rep:0.6.6
 MAINTAINER Dmitry Persiyanov <dmitry.persiyanov@gmail.com>
 
 RUN sed -i "s/httpredir.debian.org/`curl -s -D - http://httpredir.debian.org/demo/debian/ | awk '/^Link:/ { print $2 }' | sed -e 's@<http://\(.*\)/debian/>;@\1@g'`/" /etc/apt/sources.list
