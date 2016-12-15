@@ -1,0 +1,165 @@
+\documentclass{beamer}
+\usepackage[cp1251]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{amsmath,mathrsfs,mathtext}
+\usepackage{graphicx, epsfig}
+\usetheme{Warsaw}%{Singapore}%{Warsaw}%{Darmstadt}
+\usecolortheme{sidebartab}
+%\definecolor{beamer@blendedblue}{RGB}{15,120,80}
+%----------------------------------------------------------------------------------------------------------
+\title[\hbox to 56mm{\hfill\insertframenumber\,/\,\inserttotalframenumber}]
+{Fine-tuning neural conversation models for auxilary goals by means of deep reinforcement learning}
+\author[Д.\,А. Персиянов]{\large \\Дмитрий Андреевич Персиянов}
+\institute{\large
+Московский физико-технический институт}
+
+%----------------------------------------------------------------------------------------------------------
+\begin{document}
+%----------------------------------------------------------------------------------------------------------
+\begin{frame}
+%\thispagestyle{empty}
+\titlepage
+\end{frame}
+%-----------------------------------------------------------------------------------------------------
+\begin{frame}{План}
+	\begin{itemize}
+		\item Языковые модели и диалоговые системы
+		\item Их проблемы
+		\item Обучение с подкреплением
+		\item Как сравнивать две диалоговые системы
+	\end{itemize}
+\end{frame}
+
+%----------------------------------------------------------------------------------------------------------
+\begin{frame}{Языковые модели и диалоговые системы}
+В последнее время рекуррентные сети успешно используется для построения языковых моделей. Обучение происходит на огромных корпусах текстов.
+
+\includegraphics[scale=0.3]{imgs/rnn.jpg}
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Языковые модели и диалоговые системы}
+
+RNN являются языковыми моделями, потому что выучивают распределение $p(w_t \vert w_{t-1}, \cdots, w_1)$.
+
+Обучаются, минимизируя кроссентропию:
+$$J = -\frac{1}{T}\sum_{t=1}^{T}\sum_{j=1}^{|V|} y_{t, j} \cdot log(\hat{y}_{t, j}),$$ где $y_t$ -- one-hot вектор длиной $|V|$, кодирующий $t$-ое слово в предложении, $\hat{y}_t$ -- распределение вероятностей следующего слова, полученное из нейросети.
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Диалоговые системы}
+
+\begin{block}{A Neural Conversational Model}
+Одна из первых попыток обучить RNN отвечать на сообщения. (https://arxiv.org/pdf/1506.05869.pdf)
+\end{block}
+
+\begin{figure}
+\includegraphics[scale=0.4]{imgs/dialoggood.png}
+\includegraphics[scale=0.4]{imgs/dialog_bad.png}
+\end{figure}
+
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Диалоговые системы}
+\includegraphics[scale=0.5]{imgs/seq2seq.png}
+\end{frame}
+
+
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Диалоговые системы}
+Дальнейшее развитие:
+
+\begin{itemize}
+	\item Механизм внимания в RNN
+	\item Bidirectional RNNs
+	\item Hierarchical models
+	\item Persona-based seq2seq
+\end{itemize}
+
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Диалоговые системы, проблемы}
+\begin{itemize}
+	\item На один и тот же вопрос два разных ответа (inconsistency)
+	\item Нейронная сеть выучивает языковую модель минимизируя кроссентропию, а нам иногда хочется другого:
+		\begin{itemize}
+			\item Консистентность (учитывание контекста предыдущих ответов)
+			\item Не использование каких-то слов (табу)
+			\item \textbf{Ведение беседы в каком-то стиле (говорить как Путин)}
+			\item \textbf{Максимизация скорости завершения диалога}
+			\item \textbf{Максимизация удовлетворенности пользователя}
+			\item Максимизация ...
+		\end{itemize}
+\end{itemize}
+
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Обучение с подкреплением}
+
+\begin{figure}
+\includegraphics[scale=0.5]{imgs/rl_agent_env.png}
+\end{figure}
+
+Необходимо найти стратегию $\pi(a \vert s)$, такую что $$E_{\pi} \big[R_0+\gamma R_1+\cdots+\gamma^t R_t +\cdots]  \rightarrow max.$$
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Обучение с подкреплением}
+В диалоговых системах:
+
+\begin{itemize}
+	\item Действия $a$ -- слова (предложения), которые мы генерируем
+	\item Стратегия $\pi$ -- распределение, которое выучивает нейронная сеть
+	\item Награды $R$ -- задаются по-разному, в зависимости от задачи
+\end{itemize}
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Обучение с подкреплением}
+Related papers:
+\begin{itemize}
+	\item A Network-based End-to-End Trainable Task-oriented Dialogue System (https://arxiv.org/pdf/1604.04562v2.pdf)
+	\item Deep Reinforcement Learning for Dialogue Generation (https://arxiv.org/pdf/1606.01541v4.pdf)
+	\item Semantically Conditioned LSTM-based Natural Language Generation for
+Spoken Dialogue Systems (https://arxiv.org/pdf/1508.01745v2.pdf)
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Метрики для сравнения двух моделей}
+
+\begin{itemize}
+	\item Оценка правдоподобия (или перплексии) моделей на валидационной выборке
+	\item n-gram based метрики: BLEU, WER, METEOR
+	\item Оценка ответов двух моделей асессорами
+	\item Обучение дискриминаторов для двух моделей
+\end{itemize}
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{План исследования}
+\begin{itemize}
+	\item Уже есть baseline neural conversational model.
+	\item Применение Policy Gradient методов для дообучения модели под разные задачи.
+	\item Problem 1. Научится говорить как конкретный человек, etc.
+	\begin{itemize}
+		\item \textbf{Baseline}: Finetuning по классическому LLH лоссу.
+		\item \textbf{Hypothesis}: Baseline получиться побить, если дообучать RL лоссом.
+	\end{itemize}
+	\item Problem 2. Максимизировать удовлетворенность пользователя ответом, etc.
+	\begin{itemize}
+		\item \textbf{Hypothesis}: RL in continuous action spaces. Подмена вектора енкодера другим, сгенерированным с помощью стратегии $\pi(a\vert s)$.
+	\end{itemize}
+\end{itemize}
+
+\end{frame}
+
+
+
+
+
+
+
+%----------------------------------------------------------------------------------------------------------
+\end{document} 
