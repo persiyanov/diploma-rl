@@ -4,7 +4,7 @@
 
 | | avg-reward | log-likelihood
 --- | --- | ---
-Baseline seq2seq | ... | ...
+Baseline seq2seq | -0.24 | 3.323
 
 | A2C finetuned seq2seq | | |
 --- | --- | ---
