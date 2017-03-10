@@ -14,8 +14,8 @@ We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss
 | A2C finetuned seq2seq | | |
 --- | --- | ---
 | __llh-alpha__ | __avg-reward__ | __perplexity__
-5 | `-`,  | `-`, 
-10 | `-`, | `-`,
+5 | `-`, `-`,  | `-`, `-`,
+10 | `-`, `-`, | `-`, `-`,
 20 | ... | ...
 50 | ... | ...
 70 | ... | ...
