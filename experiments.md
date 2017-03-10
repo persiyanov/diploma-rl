@@ -16,7 +16,7 @@ We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss
 | __llh-alpha__ | __avg-reward__ | __perplexity__
 5 | `-`, `-`, `-`  | `-`, `-`, `-`
 10 | `-`, `-`, -0.065| `-`, `-`, 3.483
-20 | -0.061,  | 3.066, 
-50 | ... | ...
+20 | -0.061, `-`, `-`  | 3.066, `-`, `-`
+50 | -0.102, | 3.073, 
 70 | ... | ...
 100 | ... | ...
