@@ -20,3 +20,10 @@ We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss
 50 | -0.102, -0.073, `-` | 3.073, 3.081, `-`
 70 | ... | ...
 100 | ... | ...
+
+
+* Gradually reduce alpha in 500 batches [90,70,50,30,10]
+
+| avg-reward | perplexity |
+--- | ---
+... | ...
