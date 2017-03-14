@@ -9,7 +9,7 @@ __Baseline seq2seq__ | -0.238 | 3.216
 ```
 ```
 
-We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss`, where alpha is scalar. The greater alpha is chosen, the more conservative model will be. All experiments were ran three times (for __500 batches__ with 64 samples each) in order to study stability of different setups (because sometimes llh-loss can blow up). `-` in table means that model blowed up. 
+We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss`, where alpha is scalar. The greater alpha is chosen, the more conservative model will be. All experiments were ran several times (for __500 batches__ with 64 samples each) in order to study stability of different setups (because sometimes llh-loss can blow up). Values for different runs are separated by commas. `-` in table means that model blowed up. 
 
 | A2C finetuned seq2seq | | |
 --- | --- | ---
@@ -21,7 +21,8 @@ We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss
 70 | ... | ...
 100 | ... | ...
 
-
+```
+```
 * Gradually reduce alpha in 500 batches [90,70,50,30,10]
 
 | avg-reward | perplexity |
