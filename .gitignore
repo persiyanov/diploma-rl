@@ -3,6 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+.ipynb_checkpoints/
+.DS_Store
+.cache/
+.local/
+
 # C extensions
 *.so
 
