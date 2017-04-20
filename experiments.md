@@ -9,7 +9,9 @@ __Baseline seq2seq__ | -0.238 | 3.216
 ```
 ```
 
-We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss`, where alpha is scalar. The greater alpha is chosen, the more conservative model will be. All experiments were ran several times (for __500 batches__ with 64 samples each) in order to study stability of different setups (because sometimes llh-loss can blow up). Values for different runs are separated by commas. `-` in table means that model blowed up. 
+We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss`, where alpha is scalar. The greater alpha is chosen, the more conservative model will be. All experiments were ran several times (for __500 batches__ with 64 samples each) in order to study stability of different setups (because sometimes llh-loss can blow up). Values for different runs are separated by commas. `-` in table means that model blowed up.
+
+__Critic architecture (input is an lstm hidden state)__: Input(1024)->Dense(2048, ReLU)->Dense(1024, ReLU)->Dense(512, ReLU)->Dense(1, linear)
 
 | A2C finetuned seq2seq | | |
 --- | --- | ---
@@ -28,3 +30,21 @@ We finetune baseline with A2C using the following loss: `-llh * alpha + a2c_loss
 | avg-reward | perplexity |
 --- | ---
 -0.04, `-`, -0.05 | 3.188, `-`, 3.201
+
+```
+```
+--------
+# New seq2seq baseline on the same data, but early stopped using validation set.
+| | avg-reward | perplexity
+--- | --- | ---
+__Baseline seq2seq__ | -0.136 | 3.142
+
+
+__Critic architecture (input is an lstm hidden state)__: Input(1024)->Dense(512, ReLU)->Dense(512, ReLU)->Dense(256, ReLU)->Dense(1, linear)
+
+### Finetuned seq2seq with A2C
+| A2C finetuned seq2seq | | |
+--- | --- | ---
+| __llh-alpha__ | __avg-reward__ | __perplexity__
+5 | -0.021  | 3.297
+20 | -0.065 | 3.270
