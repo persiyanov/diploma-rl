@@ -4,18 +4,10 @@ import argparse
 import codecs
 import os
 import multiprocessing as mp
-import re
 import json
 
-
-def process_msg(msg):
-    msg = msg.lower()
-
-    # pad all punctuation with spaces
-    msg = re.sub("([.,!?()~`'])", r' \1 ', msg)
-    # collapse two+ spaces into one.
-    msg = re.sub('\s{2,}', ' ', msg)
-    return msg
+from .mymodule.twitter_stuff import parse_id_and_msgs
+from .mymodule.base_stuff import normalize_line
 
 
 def normalize(input_output):
@@ -23,10 +15,8 @@ def normalize(input_output):
     with codecs.open(input_file, encoding='utf8') as fin, codecs.open(output_file, 'w', encoding='utf8') as fout:
         try:
             for idx, line in enumerate(fin):
-                line = line.strip()
-                id_, msgs = line.split('\t\t')
-                msgs = json.loads(msgs)
-                normed_msgs = json.dumps(list(map(process_msg, msgs)), ensure_ascii=False)
+                id_, msgs = parse_id_and_msgs(line)
+                normed_msgs = json.dumps(list(map(normalize_line, msgs)), ensure_ascii=False)
 
                 fout.write('\t\t'.join([id_, normed_msgs]) + '\n')
         except Exception as e:
