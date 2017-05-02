@@ -36,7 +36,7 @@ def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2):
             else:
                 for k in xrange(context_size, len(msgs)-1):
                     context, answer = msgs[k-context_size:k], msgs[k+1]
-
+                    
                     batch_context.append(context)
                     batch_answer.append(answer)
 

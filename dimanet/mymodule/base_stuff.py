@@ -46,7 +46,7 @@ def normalize_line(line):
 
 
 def preprocess(lines, vocab, normalize=False, speaker=None, add_eos=True):
-    if type(lines) is str:
+    if isinstance(lines, basestring):
         lines = [lines]
 
     context = []
