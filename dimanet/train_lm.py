@@ -102,7 +102,7 @@ def train(args):
     for n_epoch in range(args.num_epochs):
         for nb, batch in enumerate(iterate_minibatches_train(args.bsize)):
             # Saving stuff.
-            if nb % args.save_every == 0:
+            if (nb + 1) % args.save_every == 0:
                 persistence.save(gentest.recurrence, model_weights_filename)
                 f_log.write("\nSAVED WEIGHTS to {}!!!\n".format(model_weights_filename))
 
