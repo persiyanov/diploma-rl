@@ -10,10 +10,10 @@ import lasagne
 
 from lasagne.layers import InputLayer, EmbeddingLayer, LSTMLayer, DenseLayer, get_all_params, get_output
 from agentnet import Recurrence
-from agentnet.resolver import  ProbabilisticResolver
+from agentnet.resolver import ProbabilisticResolver
 from agentnet.memory import LSTMCell
 
-import data_stuff as ds
+from mymodule import base_stuff
 
 
 class Config:
@@ -32,7 +32,7 @@ class Config:
             'N_LSTM_UNITS': cls.N_LSTM_UNITS,
             'EMB_SIZE': cls.EMB_SIZE,
             'BOTTLENECK_UNITS': cls.BOTTLENECK_UNITS,
-            'TEMPERATURE': cls.TEMPERATURE
+            'TEMPERATURE': cls.TEMPERATURE.get_value()
         }
 
     @classmethod
@@ -42,141 +42,150 @@ class Config:
 
 
 class Enc:
-    ### THEANO GRAPH INPUT ###
-    input_phrase = T.imatrix("encoder phrase tokens")
-    ##########################
+    def __init__(self, vocab):
+        ### THEANO GRAPH INPUT ###
+        self.input_phrase = T.imatrix("encoder phrase tokens")
+        ##########################
 
-    l_in = InputLayer((None, None), input_phrase, name='context input')
-    l_mask = InputLayer((None, None), T.neq(input_phrase, ds.PAD_ix), name='context mask')
+        self.l_in = InputLayer((None, None), self.input_phrase, name='context input')
+        self.l_mask = InputLayer((None, None), T.neq(self.input_phrase, vocab.PAD_ix), name='context mask')
 
-    l_emb = EmbeddingLayer(l_in, ds.N_TOKENS, Config.EMB_SIZE, name="context embedding")
+        self.l_emb = EmbeddingLayer(self.l_in, vocab.n_tokens, Config.EMB_SIZE, name="context embedding")
 
-    l_lstm = LSTMLayer(l_emb,
-                       Config.N_LSTM_UNITS,
-                       name='encoder_lstm',
-                       grad_clipping=Config.LSTM_LAYER_GRAD_CLIP,
-                       mask_input=l_mask,
-                       only_return_final=True,
-                       peepholes=False)
+        self.l_lstm = LSTMLayer(self.l_emb,
+                                Config.N_LSTM_UNITS,
+                                name='encoder_lstm',
+                                grad_clipping=Config.LSTM_LAYER_GRAD_CLIP,
+                                mask_input=self.l_mask,
+                                only_return_final=True,
+                                peepholes=False)
 
-    output = l_lstm
+        self.output = self.l_lstm
 
 
 class Dec:
-    # Define inputs of decoder at each time step.
-    prev_cell = InputLayer((None, Config.N_LSTM_UNITS), name='cell')
-    prev_hid = InputLayer((None, Config.N_LSTM_UNITS), name='hid')
-    input_word = InputLayer((None,))
-    encoder_lstm = InputLayer((None, Config.N_LSTM_UNITS), name='encoder')
+    def __init__(self, vocab, enc):
+        # Define inputs of decoder at each time step.
+        self.prev_cell = InputLayer((None, Config.N_LSTM_UNITS), name='cell')
+        self.prev_hid = InputLayer((None, Config.N_LSTM_UNITS), name='hid')
+        self.input_word = InputLayer((None,))
+        self.encoder_lstm = InputLayer((None, Config.N_LSTM_UNITS), name='encoder')
 
-    # Embed input word and use the same embeddings as in the encoder.
-    word_embedding = EmbeddingLayer(input_word, ds.N_TOKENS, Config.EMB_SIZE,
-                                    W=Enc.l_emb.W, name='emb')
+        # Embed input word and use the same embeddings as in the encoder.
+        self.word_embedding = EmbeddingLayer(self.input_word, vocab.n_tokens, Config.EMB_SIZE,
+                                             W=enc.l_emb.W, name='emb')
 
-    # This is not WrongLSTMLayer! *Cell is used for one-tick networks.
-    new_cell, new_hid = LSTMCell(prev_cell, prev_hid,
-                                 input_or_inputs=[word_embedding, encoder_lstm],
-                                 name='decoder_lstm',
-                                 peepholes=False)
+        # This is not WrongLSTMLayer! *Cell is used for one-tick networks.
+        self.new_cell, self.new_hid = LSTMCell(self.prev_cell, self.prev_hid,
+                                               input_or_inputs=[self.word_embedding, self.encoder_lstm],
+                                               name='decoder_lstm',
+                                               peepholes=False)
 
-    # Define parts for new word prediction. Bottleneck is a hack for reducing time complexity.
-    bottleneck = DenseLayer(new_hid, Config.BOTTLENECK_UNITS, nonlinearity=T.tanh, name='decoder intermediate')
+        # Define parts for new word prediction. Bottleneck is a hack for reducing time complexity.
+        self.bottleneck = DenseLayer(self.new_hid, Config.BOTTLENECK_UNITS, nonlinearity=T.tanh,
+                                     name='decoder intermediate')
 
-    next_word_probs = DenseLayer(bottleneck, ds.N_TOKENS,
-                                 nonlinearity=lambda probs: T.nnet.softmax(probs / Config.TEMPERATURE),
-                                 name='decoder next word probas')
+        self.next_word_probs = DenseLayer(self.bottleneck, vocab.n_tokens,
+                                          nonlinearity=lambda probs: T.nnet.softmax(probs / Config.TEMPERATURE),
+                                          name='decoder next word probas')
 
-    next_words = ProbabilisticResolver(next_word_probs, assume_normalized=True)
+        self.next_words = ProbabilisticResolver(self.next_word_probs, assume_normalized=True)
 
 
 class GenTest:
-    n_steps = theano.shared(25)
-    # This theano tensor is used as first input word for decoder.
-    bos_input_var = T.zeros((Enc.input_phrase.shape[0],), 'int32') + ds.BOS_ix
+    def __init__(self, vocab, enc, dec):
+        self.vocab = vocab
 
-    bos_input_layer = InputLayer((None,), bos_input_var, name="first input")
+        self.n_steps = theano.shared(25)
+        # This theano tensor is used as first input word for decoder.
+        self.bos_input_var = T.zeros((enc.input_phrase.shape[0],), 'int32') + vocab.BOS_ix
 
-    recurrence = Recurrence(
-        # This means that encoder.output passed to decoder.encoder_lstm input at each tick.
-        input_nonsequences={Dec.encoder_lstm: Enc.output},
+        self.bos_input_layer = InputLayer((None,), self.bos_input_var, name="first input")
 
-        # This defines how outputs moves to inputs at each tick in decoder.
-        # These corresponds to outputs in theano scan function.
-        state_variables=OrderedDict([(Dec.new_cell, Dec.prev_cell),
-                                     (Dec.new_hid, Dec.prev_hid),
-                                     (Dec.next_words, Dec.input_word)]),
-        state_init={Dec.next_words: bos_input_layer},
-        n_steps=n_steps,
-        unroll_scan=False)
+        self.recurrence = Recurrence(
+            # This means that encoder.output passed to decoder.encoder_lstm input at each tick.
+            input_nonsequences={dec.encoder_lstm: enc.output},
 
-    weights = get_all_params(recurrence, trainable=True)
+            # This defines how outputs moves to inputs at each tick in decoder.
+            # These corresponds to outputs in theano scan function.
+            state_variables=OrderedDict([(dec.new_cell, dec.prev_cell),
+                                         (dec.new_hid, dec.prev_hid),
+                                         (dec.next_words, dec.input_word)]),
+            state_init={dec.next_words: self.bos_input_layer},
+            n_steps=self.n_steps,
+            unroll_scan=False)
 
-    recurrence_outputs = get_output(recurrence)
+        self.weights = get_all_params(self.recurrence, trainable=True)
 
-    ##### DECODER UNROLLED #####
-    # Theano tensor which represents sequence of generated words.
-    words_seq = recurrence_outputs[Dec.next_words]
+        self.recurrence_outputs = get_output(self.recurrence)
 
-    # Theano tensor which represents decoder hidden states.
-    dec_cell_seq = recurrence_outputs[Dec.new_cell]
-    ############################
+        ##### DECODER UNROLLED #####
+        # Theano tensor which represents sequence of generated words.
+        self.words_seq = self.recurrence_outputs[dec.next_words]
 
-    generate = theano.function([Enc.input_phrase], [words_seq, dec_cell_seq],
-                               updates=recurrence.get_automatic_updates())
+        # Theano tensor which represents decoder hidden states.
+        self.dec_cell_seq = self.recurrence_outputs[dec.new_cell]
+        ############################
 
-    @staticmethod
-    def reply(phrase, max_len=25, **kwargs):
-        old_value = GenTest.n_steps.get_value()
+        self.generate = theano.function([enc.input_phrase], [self.words_seq, self.dec_cell_seq],
+                                        updates=self.recurrence.get_automatic_updates())
 
-        GenTest.n_steps.set_value(max_len)
-        phrase_ix = ds.phrase2matrix([phrase], **kwargs)
-        answer_ix = GenTest.generate(phrase_ix)[0][0]
-        if ds.EOS_ix in answer_ix:
-            answer_ix = answer_ix[:list(answer_ix).index(ds.EOS_ix)]
+    def reply(self, phrase, max_len=25, **kwargs):
+        old_value = self.n_steps.get_value()
 
-        GenTest.n_steps.set_value(old_value)
-        return ' '.join(map(ds.tokens.__getitem__, answer_ix))
+        self.n_steps.set_value(max_len)
+        phrase_ix = base_stuff.phrase2matrix([phrase], self.vocab, **kwargs)
+        answer_ix = self.generate(phrase_ix)[0][0]
+        if self.vocab.EOS_ix in answer_ix:
+            answer_ix = answer_ix[:list(answer_ix).index(self.vocab.EOS_ix)]
+
+        self.n_steps.set_value(old_value)
+        return ' '.join(map(self.vocab.tokens.__getitem__, answer_ix))
 
 
 class GenTrain:
     """contains a recurrent loop where network is fed with reference answers instead of her own outputs.
     Also contains some functions that train network in that mode."""
 
-    ### THEANO GRAPH INPUT. ###
-    reference_answers = T.imatrix("decoder reference answers")  # shape [batch_size, max_len]
-    ###########################
+    def __init__(self, vocab, enc, dec, gentest):
+        self.vocab = vocab
 
-    bos_column = T.zeros((reference_answers.shape[0], 1), 'int32') + ds.BOS_ix
-    reference_answers_bos = T.concatenate((bos_column, reference_answers), axis=1)  # prepend BOS
+        ### THEANO GRAPH INPUT. ###
+        self.reference_answers = T.imatrix("decoder reference answers")  # shape [batch_size, max_len]
+        ###########################
 
-    l_ref_answers = InputLayer((None, None), reference_answers_bos, name='context input')
-    l_ref_mask = InputLayer((None, None), T.neq(reference_answers_bos, ds.PAD_ix), name='context mask')
+        self.bos_column = T.zeros((self.reference_answers.shape[0], 1), 'int32') + vocab.BOS_ix
+        self.reference_answers_bos = T.concatenate((self.bos_column, self.reference_answers), axis=1)  # prepend BOS
 
-    recurrence = Recurrence(
-        input_nonsequences=OrderedDict([(Dec.encoder_lstm, Enc.output)]),
-        input_sequences=OrderedDict([(Dec.input_word, l_ref_answers)]),
-        state_variables=OrderedDict([(Dec.new_cell, Dec.prev_cell),
-                                     (Dec.new_hid, Dec.prev_hid)]),
-        tracked_outputs=[Dec.next_word_probs, Dec.next_words],
-        mask_input=l_ref_mask,
-        unroll_scan=False)
+        self.l_ref_answers = InputLayer((None, None), self.reference_answers_bos, name='context input')
+        self.l_ref_mask = InputLayer((None, None), T.neq(self.reference_answers_bos, vocab.PAD_ix), name='context mask')
 
-    recurrence_outputs = get_output(recurrence)
+        self.recurrence = Recurrence(
+            input_nonsequences=OrderedDict([(dec.encoder_lstm, enc.output)]),
+            input_sequences=OrderedDict([(dec.input_word, self.l_ref_answers)]),
+            state_variables=OrderedDict([(dec.new_cell, dec.prev_cell),
+                                         (dec.new_hid, dec.prev_hid)]),
+            tracked_outputs=[dec.next_word_probs, dec.next_words],
+            mask_input=self.l_ref_mask,
+            unroll_scan=False)
 
-    P_seq = recurrence_outputs[Dec.next_word_probs]
+        self.recurrence_outputs = get_output(self.recurrence)
 
-    ############################
-    ###loglikelihood training###
-    ############################
-    predicted_probas = P_seq[:, :-1].reshape((-1, ds.N_TOKENS)) + 1e-6
-    target_labels = reference_answers.ravel()
+        self.P_seq = self.recurrence_outputs[dec.next_word_probs]
 
-    llh_loss = lasagne.objectives.categorical_crossentropy(predicted_probas, target_labels).mean()
-    llh_grads = lasagne.updates.total_norm_constraint(T.grad(llh_loss, GenTest.weights), Config.TOTAL_NORM_GRAD_CLIP)
+        ############################
+        ###loglikelihood training###
+        ############################
+        self.predicted_probas = self.P_seq[:, :-1].reshape((-1, vocab.n_tokens)) + 1e-6
+        self.target_labels = self.reference_answers.ravel()
 
-    llh_updates = lasagne.updates.rmsprop(llh_grads, GenTest.weights, learning_rate=0.005, rho=0.9)
+        self.llh_loss = lasagne.objectives.categorical_crossentropy(self.predicted_probas, self.target_labels).mean()
+        self.llh_grads = lasagne.updates.total_norm_constraint(T.grad(self.llh_loss, gentest.weights),
+                                                               Config.TOTAL_NORM_GRAD_CLIP)
 
-    train_step = theano.function([Enc.input_phrase, reference_answers], llh_loss,
-                                 updates=llh_updates + recurrence.get_automatic_updates())
-    get_llh = theano.function([Enc.input_phrase, reference_answers], llh_loss, no_default_updates=True)
+        self.llh_updates = lasagne.updates.rmsprop(self.llh_grads, gentest.weights, learning_rate=0.005, rho=0.9)
 
+        self.train_step = theano.function([enc.input_phrase, self.reference_answers], self.llh_loss,
+                                          updates=self.llh_updates + self.recurrence.get_automatic_updates())
+        self.get_llh = theano.function([enc.input_phrase, self.reference_answers], self.llh_loss,
+                                       no_default_updates=True)

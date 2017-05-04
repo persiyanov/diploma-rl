@@ -28,14 +28,13 @@ def get_parser():
     parser.add_argument('--weights-path', type=str, help='Path to your model weights. Set this argument if '
                                                          'you want to continue training.')
     parser.add_argument('--name', type=str, help='Name of your model. Will be used in dumping additional files.')
-    parser.add_argument('--save-to', type=str, help='Dir where to store your model.')
 
     return parser
 
 
 def main():
     args = get_parser().parse_args()
-    assert all([args.train_data, args.val_data, args.vocab_path, args.dataset, args.name, args.save_to]),\
+    assert all([args.train_data, args.val_data, args.vocab_path, args.dataset, args.name]),\
         "Not all required arguments were provided."
 
     print "Running training with config:"
@@ -50,16 +49,25 @@ def train(args):
     from mymodule.opensub_stuff import iterate_minibatches_opensub
     from mymodule.twitter_stuff import iterate_minibatches_twitter
     from mymodule.base_stuff import Vocab
-    from mymodule.neural.seq2seq import GenTest, GenTrain, Config
+    from mymodule.neural import seq2seq
 
     print "Network architecture config:"
-    Config.print_dict()
+    seq2seq.Config.print_dict()
 
     train_data_path = os.path.expanduser(args.train_data)
     val_data_path = os.path.expanduser(args.val_data)
 
     print "Reading vocab..."
     vocab = Vocab.read_from_file(args.vocab_path)
+    print "Creating encoder..."
+    enc = seq2seq.Enc(vocab)
+    print "Creating decoder..."
+    dec = seq2seq.Dec(vocab, enc)
+    print "Creating GenTest..."
+    gentest = seq2seq.GenTest(vocab, enc, dec)
+    print "Creating GenTrain..."
+    gentrain = seq2seq.GenTrain(vocab, enc, dec, gentest)
+    print "Done!!!"
 
     if args.dataset == 'twitter':
         iterate_minibatches_train = partial(iterate_minibatches_twitter, train_data_path, vocab)
@@ -81,22 +89,22 @@ def train(args):
             print("Loaded old loss history")
     except:
         loss_history = []
-    print("Start training.")
 
     try:
-        persistence.load(GenTest.recurrence, model_weights_filename)
+        persistence.load(gentest.recurrence, model_weights_filename)
         print("Loaded old weights!")
     except:
         pass
 
+    print("Start training.")
     val_loss_history = []
 
     for n_epoch in range(args.num_epochs):
         for nb, batch in enumerate(iterate_minibatches_train(args.bsize)):
             # Saving stuff.
             if nb % args.save_every == 0:
-                persistence.save(GenTest.recurrence, args.weights_path)
-                f_log.write("\nSAVED WEIGHTS!!!\n")
+                persistence.save(gentest.recurrence, model_weights_filename)
+                f_log.write("\nSAVED WEIGHTS to {}!!!\n".format(model_weights_filename))
 
             # Printing stuff.
             if (nb + 1) % args.verbosity == 0:
@@ -114,7 +122,7 @@ def train(args):
                     pickle.dump(loss_history, fout)
 
             # Training stuff.
-            batch_loss = GenTrain.train_step(batch[0], batch[1])
+            batch_loss = gentrain.train_step(batch[0], batch[1])
 
             loss_history.append(batch_loss)
 
@@ -122,7 +130,7 @@ def train(args):
                 val_loss = 0.0
                 num_batches = 0
                 for nb, batch in enumerate(iterate_minibatches_val(args.bsize)):
-                    val_loss += GenTrain.get_llh(batch[0], batch[1])
+                    val_loss += gentrain.get_llh(batch[0], batch[1])
                     num_batches += 1
                 val_loss /= num_batches
                 if len(val_loss_history) == 0:
