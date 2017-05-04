@@ -35,6 +35,11 @@ class Config:
             'TEMPERATURE': cls.TEMPERATURE
         }
 
+    @classmethod
+    def print_dict(cls):
+        from pprint import pprint
+        pprint(cls.to_dict())
+
 
 class Enc:
     ### THEANO GRAPH INPUT ###

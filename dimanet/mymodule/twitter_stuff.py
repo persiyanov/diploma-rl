@@ -21,7 +21,6 @@ def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2):
     2134812350123\t\t["привет ахахаха", "дарова брат", "че как сам ? ? ?"]
     """
     with codecs.open(filename, encoding='utf8') as fin:
-        batch_id = 0
         batch_context = []
         batch_answer = []
         for line in fin:
@@ -36,11 +35,11 @@ def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2):
             else:
                 for k in xrange(context_size, len(msgs)-1):
                     context, answer = msgs[k-context_size:k], msgs[k+1]
-                    
+
                     batch_context.append(context)
                     batch_answer.append(answer)
 
-            assert len(batch_context) == len(batch_answer), 'MAAAN, YOU FUCKED UP!!!!'
+            assert len(batch_context) == len(batch_answer), '******* MAAAN, YOU FUCKED UP!!!! *******'
 
             if len(batch_context) >= batch_size:
                 next_context = batch_context[batch_size:]
@@ -51,5 +50,3 @@ def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2):
 
                 batch_context = next_context
                 batch_answer = next_answer
-
-                batch_id += 1
