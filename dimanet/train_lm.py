@@ -134,3 +134,6 @@ def train(args):
                 print('Loss:\t{:.4f}'.format(val_loss_history[-1]))
                 print('**************************************')
                 print
+
+if __name__ == '__main__':
+    main()
