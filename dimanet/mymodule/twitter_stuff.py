@@ -66,7 +66,7 @@ def _sample_utt(arr, delete=False):
     idx = np.random.choice(np.arange(len(arr)))
     res = arr[idx]
     if delete:
-        arr.remove(idx)
+        del arr[idx]
     return res
 
 
