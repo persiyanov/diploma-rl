@@ -93,6 +93,8 @@ class DssmModel:
         self.bad_utt_semantic_d = get_output(self.l_utt_semantic, inputs={self.l_utt_enc.l_in: self._bad_utterance},
                                              deterministic=True)
 
+        self._build_loss_and_ops()
+
     @classmethod
     def _get_norm(cls, v):
         return (v**2).sum(axis=-1)**.5
