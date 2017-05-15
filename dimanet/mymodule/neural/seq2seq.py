@@ -17,11 +17,11 @@ from mymodule import base_stuff
 
 
 class Config:
-    LSTM_LAYER_GRAD_CLIP = os.environ.get('LSTM_LAYER_GRAD_CLIP') or 5.
-    TOTAL_NORM_GRAD_CLIP = os.environ.get('TOTAL_NORM_GRAD_CLIP') or 10.
-    N_LSTM_UNITS = os.environ.get('N_LSTM_UNITS') or 1024
-    EMB_SIZE = os.environ.get('EMB_SIZE') or 512
-    BOTTLENECK_UNITS = os.environ.get('BOTTLENECK_UNITS') or 256
+    LSTM_LAYER_GRAD_CLIP = os.environ.get('LSTM_LAYER_GRAD_CLIP', 5.)
+    TOTAL_NORM_GRAD_CLIP = os.environ.get('TOTAL_NORM_GRAD_CLIP', 10.)
+    N_LSTM_UNITS = os.environ.get('N_LSTM_UNITS', 1024)
+    EMB_SIZE = os.environ.get('EMB_SIZE', 512)
+    BOTTLENECK_UNITS = os.environ.get('BOTTLENECK_UNITS', 256)
     TEMPERATURE = theano.shared(np.float32(1.), name='temperature')
 
     @classmethod
