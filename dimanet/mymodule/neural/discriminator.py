@@ -107,8 +107,8 @@ class DssmModel:
         self.bad_similarity = self._get_cosine(self.user_semantic, self.bad_utt_semantic)
         self.bad_similarity_d = self._get_cosine(self.user_semantic_d, self.bad_utt_semantic_d)
 
-        self.loss = T.nnet.relu(self.bad_similarity - self.good_similarity + 1).mean()
-        self.loss_d = T.nnet.relu(self.bad_similarity_d - self.good_similarity_d + 1).mean()
+        self.loss = T.nnet.relu(self.bad_similarity - self.good_similarity + 0.5).mean()
+        self.loss_d = T.nnet.relu(self.bad_similarity_d - self.good_similarity_d + 0.5).mean()
 
         self.weights = get_all_params(self.l_utt_semantic)+get_all_params(self.l_user_semantic)
         grads = lasagne.updates.total_norm_constraint(T.grad(self.loss, self.weights), Config.TOTAL_NORM_GRAD_CLIP)
