@@ -79,7 +79,7 @@ def iterate_minibatches_twitter_dssm(filename, vocab, batch_size):
     with codecs.open(filename, encoding='utf8') as fin:
         for line in fin:
             chunks = line.strip().split('\t')
-            id_, msg = chunks[0], ' '.join(chunks[1:])
+            id_, msg = int(chunks[0]), ' '.join(chunks[1:])
             uid2msgs[id_].append(msg)
     uid2msgs_copy = uid2msgs.copy()
 
