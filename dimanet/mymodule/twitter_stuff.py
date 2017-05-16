@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import json
 import codecs
 import numpy as np
+import copy
 
 from collections import defaultdict
 
@@ -70,7 +71,7 @@ def _sample_utt(arr, delete=False):
     return res
 
 
-@background
+# @background
 def iterate_minibatches_twitter_dssm(filename, vocab, batch_size):
     """FIle at 'filename' has the following format:
     534\tахаххаха приветосикиииа
@@ -81,7 +82,7 @@ def iterate_minibatches_twitter_dssm(filename, vocab, batch_size):
             chunks = line.strip().split('\t')
             id_, msg = int(chunks[0]), ' '.join(chunks[1:])
             uid2msgs[id_].append(msg)
-    uid2msgs_copy = uid2msgs.copy()
+    uid2msgs_copy = copy.deepcopy(uid2msgs)
 
     while len(uid2msgs) > 0:
         batch_uid = []
@@ -89,7 +90,7 @@ def iterate_minibatches_twitter_dssm(filename, vocab, batch_size):
         batch_bad_utt = []
         for i in xrange(batch_size):
             uid1 = _sample_from_but(uid2msgs.keys())
-            uid2 = _sample_from_but(uid2msgs.keys(), exclude=[uid1])
+            uid2 = _sample_from_but(uid2msgs_copy.keys(), exclude=[uid1])
 
             good_utt = _sample_utt(uid2msgs[uid1], delete=True)
             if len(uid2msgs[uid1]) == 0:

@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import os
 
+import numpy as np
 import theano
 import lasagne
 import theano.tensor as T
@@ -18,12 +19,13 @@ from lasagne.layers import (
 )
 
 from seq2seq import Config
+from base_stuff import phrase2matrix
 
 
 class DssmConfig:
-    SEMANTIC_SPACE_SIZE = os.environ.get('SEMANTIC_SPACE_SIZE', 512)
-    USER_EMB_SIZE = os.environ.get('USER_EMB_SIZE', 128)
-    DROPOUT_RATE = os.environ.get('DROPOUT_RATE', 0.3)
+    SEMANTIC_SPACE_SIZE = int(os.environ.get('SEMANTIC_SPACE_SIZE', 512))
+    USER_EMB_SIZE = int(os.environ.get('USER_EMB_SIZE', 128))
+    DROPOUT_RATE = float(os.environ.get('DROPOUT_RATE', 0.3))
 
     @classmethod
     def to_dict(cls):
@@ -97,7 +99,7 @@ class DssmModel:
 
     @classmethod
     def _get_norm(cls, v):
-        return (v**2).sum(axis=-1)**.5
+        return ((v**2).sum(axis=-1)+1)**.5  # +1 to get rid of NaNs.
 
     @classmethod
     def _get_cosine(cls, v1, v2):
@@ -125,3 +127,6 @@ class DssmModel:
 
         self.predict_d_op = theano.function([self._user_id, self._good_utterance], self.good_similarity_d,
                                             allow_input_downcast=True)
+
+    def similarity(self, uid, text):
+        return self.predict_d_op(np.array([uid]), phrase2matrix([text], self.vocab, normalize=True))[0]
