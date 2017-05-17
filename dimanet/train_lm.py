@@ -28,6 +28,7 @@ def get_parser():
     parser.add_argument('--weights-path', type=str, help='Path to your model weights. Set this argument if '
                                                          'you want to continue training.')
     parser.add_argument('--name', type=str, help='Name of your model. Will be used in dumping additional files.')
+    parser.add_argument('--iterator-name', type=str, default='lm-training')
 
     return parser
 
@@ -47,7 +48,7 @@ def main():
 def train(args):
     from agentnet.utils import persistence
     from mymodule.opensub_stuff import iterate_minibatches_opensub
-    from mymodule.twitter_stuff import iterate_minibatches_twitter
+    from mymodule.twitter_stuff import get_iterator
     from mymodule.base_stuff import Vocab
     from mymodule.neural import seq2seq
 
@@ -70,8 +71,9 @@ def train(args):
     print "Done!!!"
 
     if args.dataset == 'twitter':
-        iterate_minibatches_train = partial(iterate_minibatches_twitter, train_data_path, vocab)
-        iterate_minibatches_val = partial(iterate_minibatches_twitter, val_data_path, vocab)
+        iterator = get_iterator(args.iterator_name)
+        iterate_minibatches_train = partial(iterator, train_data_path, vocab)
+        iterate_minibatches_val = partial(iterator, val_data_path, vocab)
     else:  # opensub
         with open(train_data_path, 'rb') as fin:
             train_contexts = pickle.load(fin)

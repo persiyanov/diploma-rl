@@ -156,3 +156,19 @@ def iterate_minibatches_twitter_selected_users_chains(filename, vocab, batch_siz
                 batch_context = []
                 batch_answer = []
                 batch_uid = []
+
+_registry = {}
+
+
+def register_iterator(iterator, name):
+    _registry[name] = iterator
+
+
+def get_iterator(name):
+    return _registry[name]
+
+
+register_iterator(iterate_minibatches_twitter, 'lm-training')
+register_iterator(iterate_minibatches_twitter_dssm, 'dssm-training')
+register_iterator(iterate_minibatches_twitter_user_chains, 'llh-on-user')
+register_iterator(iterate_minibatches_twitter_selected_users_chains, 'llh-on-user-dssm-weighted')
