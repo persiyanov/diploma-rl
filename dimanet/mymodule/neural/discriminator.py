@@ -19,7 +19,7 @@ from lasagne.layers import (
 )
 
 from seq2seq import Config
-from base_stuff import phrase2matrix
+from mymodule.base_stuff import phrase2matrix
 
 
 class DssmConfig:
