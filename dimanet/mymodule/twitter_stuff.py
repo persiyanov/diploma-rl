@@ -20,37 +20,55 @@ def parse_id_and_msgs(raw_line):
 
 
 @background
-def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2):
+def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2, convert_to_matrix=True,
+                                weight_fn=None):
     """File at 'filename' has the following format:
     2134812350123\t\t["привет ахахаха", "дарова брат", "че как сам ? ? ?"]
+
+    weight_fn = lambda ans: dssm_model.similarity(uid, ans)
     """
     with codecs.open(filename, encoding='utf8') as fin:
         batch_context = []
         batch_answer = []
+        if weight_fn:
+            batch_weights = []
+            
         for line in fin:
             id_, msgs = parse_id_and_msgs(line)
             if len(msgs) <= 1:
                 continue
             elif len(msgs) <= context_size:
                 context, answer = msgs[:-1], msgs[-1]
-
                 batch_context.append(context)
                 batch_answer.append(answer)
+                if weight_fn:
+                    batch_weights.append(weight_fn(answer))
             else:
-                for k in xrange(context_size, len(msgs)-1):
-                    context, answer = msgs[k-context_size:k], msgs[k+1]
+                for k in xrange(context_size, len(msgs) - 1):
+                    context, answer = msgs[k - context_size:k], msgs[k + 1]
 
                     batch_context.append(context)
                     batch_answer.append(answer)
+                    if weight_fn:
+                        batch_weights.append(weight_fn(answer))
 
             assert len(batch_context) == len(batch_answer), '******* MAAAN, YOU FUCKED UP!!!! *******'
 
             if len(batch_context) >= batch_size:
                 next_context = batch_context[batch_size:]
                 next_answer = batch_answer[batch_size:]
+                if weight_fn:
+                    next_weights = batch_weights[batch_size:]
 
-                yield (phrase2matrix(batch_context[:batch_size], vocab, normalize=False),
-                       phrase2matrix(batch_answer[:batch_size], vocab, normalize=False))
+                batch_context = phrase2matrix(batch_context[:batch_size], vocab, normalize=False) \
+                    if convert_to_matrix else batch_context[:batch_size]
+                batch_answer = phrase2matrix(batch_answer[:batch_size], vocab, normalize=False) \
+                    if convert_to_matrix else batch_answer[:batch_size]
+                if weight_fn:
+                    yield batch_context, batch_answer, batch_weights[:batch_size]
+                else:
+                    yield batch_context, batch_answer
+                    batch_weights = next_weights
 
                 batch_context = next_context
                 batch_answer = next_answer
@@ -72,7 +90,7 @@ def _sample_utt(arr, delete=False):
 
 
 # @background
-def iterate_minibatches_twitter_dssm(filename, vocab, batch_size):
+def iterate_minibatches_twitter_dssm(filename, vocab, batch_size, convert_to_matrix=True):
     """File at 'filename' has the following format:
     534\tахаххаха приветосикиииа
     """
@@ -101,14 +119,12 @@ def iterate_minibatches_twitter_dssm(filename, vocab, batch_size):
 
             if len(uid2msgs) == 0:
                 break
-
-        yield (np.array(batch_uid),
-               phrase2matrix(batch_good_utt, vocab, normalize=True),
-               phrase2matrix(batch_bad_utt, vocab, normalize=True)
-               )
+        batch_good_utt = phrase2matrix(batch_good_utt, vocab, normalize=True) if convert_to_matrix else batch_good_utt
+        batch_bad_utt = phrase2matrix(batch_bad_utt, vocab, normalize=True) if convert_to_matrix else batch_bad_utt
+        yield np.array(batch_uid), batch_good_utt, batch_bad_utt
 
 
-def iterate_minibatches_twitter_user_chains(filename, vocab, batch_size):
+def iterate_minibatches_twitter_user_chains(filename, vocab, batch_size, convert_to_matrix=True):
     """File at 'filename' has the following format:
     ахаххаха приветосикиииа\\tну привяу\\tкак делы?
     """
@@ -123,14 +139,16 @@ def iterate_minibatches_twitter_user_chains(filename, vocab, batch_size):
             batch_answer.append(msgs[2])
 
             if len(batch_context) == batch_size:
-                yield (phrase2matrix(batch_context, vocab, normalize=False),
-                       phrase2matrix(batch_answer, vocab, normalize=False))
+                batch_context = phrase2matrix(batch_context, vocab,
+                                              normalize=True) if convert_to_matrix else batch_context
+                batch_answer = phrase2matrix(batch_answer, vocab, normalize=True) if convert_to_matrix else batch_answer
+                yield batch_context, batch_answer
 
                 batch_context = []
                 batch_answer = []
 
 
-def iterate_minibatches_twitter_selected_users_chains(filename, vocab, batch_size):
+def iterate_minibatches_twitter_selected_users_chains(filename, vocab, batch_size, convert_to_matrix=True):
     """File at 'filename' has the following format:
     534\t\tахаххаха приветосикиииа\\tну дарова\\tкак делыыы??
     """
@@ -148,14 +166,16 @@ def iterate_minibatches_twitter_selected_users_chains(filename, vocab, batch_siz
             batch_uid.append(int(batch_uid))
 
             if len(batch_context) == batch_size:
-                yield (np.array(batch_uid),
-                       phrase2matrix(batch_context, vocab, normalize=False),
-                       phrase2matrix(batch_answer, vocab, normalize=False)
-                       )
+                batch_context = phrase2matrix(batch_context, vocab,
+                                              normalize=True) if convert_to_matrix else batch_context
+                batch_answer = phrase2matrix(batch_answer, vocab, normalize=True) if convert_to_matrix else batch_answer
+
+                yield np.array(batch_uid), batch_context, batch_answer
 
                 batch_context = []
                 batch_answer = []
                 batch_uid = []
+
 
 _registry = {}
 

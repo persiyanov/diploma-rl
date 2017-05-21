@@ -29,6 +29,9 @@ def get_parser():
                                                          'you want to continue training.')
     parser.add_argument('--name', type=str, help='Name of your model. Will be used in dumping additional files.')
     parser.add_argument('--iterator-name', type=str, default='lm-training')
+    parser.add_argument('--dssm-model-utt', type=str, default=None, help='Which dssm model to use for sample weighting.')
+    parser.add_argument('--dssm-model-user', type=str, default=None, help='Which dssm model to use for sample weighting.')
+    parser.add_argument('--user-id', type=int, default=None, help='Which user to use for finetune by dssm scores.')
 
     return parser
 
@@ -50,7 +53,7 @@ def train(args):
     from mymodule.opensub_stuff import iterate_minibatches_opensub
     from mymodule.twitter_stuff import get_iterator
     from mymodule.base_stuff import Vocab
-    from mymodule.neural import seq2seq
+    from mymodule.neural import seq2seq, discriminator
 
     print "Network architecture config:"
     seq2seq.Config.print_dict()
@@ -70,10 +73,22 @@ def train(args):
     gentrain = seq2seq.GenTrain(vocab, enc, dec, gentest)
     print "Done!!!"
 
+    if args.dssm_model_utt:
+        print "Loading dssm model..."
+        assert args.dssm_model_user, "Provide both arguments for initializing dssm!"
+        assert args.user_id, "If you want to use dssm, provide user-id to finetuning."
+        dssm_model = discriminator.DssmModel(vocab, 1000)
+        persistence.load(dssm_model.l_user_semantic, args.dssm_model_user)
+        persistence.load(dssm_model.l_utt_semantic, args.dssm_model_utt)
+
+        weight_fn = lambda ans: dssm_model.similarity(args.user_id, ans)
+    else:
+        weight_fn = None
+
     if args.dataset == 'twitter':
         iterator = get_iterator(args.iterator_name)
-        iterate_minibatches_train = partial(iterator, train_data_path, vocab)
-        iterate_minibatches_val = partial(iterator, val_data_path, vocab)
+        iterate_minibatches_train = partial(iterator, train_data_path, vocab, weight_fn=weight_fn)
+        iterate_minibatches_val = partial(iterator, val_data_path, vocab, weight_fn=weight_fn)
     else:  # opensub
         with open(train_data_path, 'rb') as fin:
             train_contexts = pickle.load(fin)
@@ -124,8 +139,10 @@ def train(args):
                     pickle.dump(loss_history, fout)
 
             # Training stuff.
-            batch_loss = gentrain.train_step(batch[0], batch[1])
-
+            if weight_fn:
+                batch_loss = gentrain.train_step_weighted(batch[0], batch[1], batch[2])
+            else:
+                batch_loss = gentrain.train_step(batch[0], batch[1])
             loss_history.append(batch_loss)
 
             if (nb + 1) % args.eval_every == 0:

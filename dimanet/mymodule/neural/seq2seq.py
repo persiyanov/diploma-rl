@@ -152,6 +152,7 @@ class GenTrain:
 
         ### THEANO GRAPH INPUT. ###
         self.reference_answers = T.imatrix("decoder reference answers")  # shape [batch_size, max_len]
+        self.sample_weights = T.vector("samples weights for different users")  # shape [batch_size,]
         ###########################
 
         self.bos_column = T.zeros((self.reference_answers.shape[0], 1), 'int32') + vocab.BOS_ix
@@ -179,7 +180,10 @@ class GenTrain:
         self.predicted_probas = self.P_seq[:, :-1].reshape((-1, vocab.n_tokens)) + 1e-6
         self.target_labels = self.reference_answers.ravel()
 
-        self.llh_loss = lasagne.objectives.categorical_crossentropy(self.predicted_probas, self.target_labels).mean()
+        self._raw_llh_loss = lasagne.objectives.categorical_crossentropy(self.predicted_probas, self.target_labels)
+        self.llh_loss = self._raw_llh_loss.mean()
+        self.llh_loss_weighted = (self.sample_weights[:, None] * self._raw_llh_loss).mean()
+
         self.llh_grads = lasagne.updates.total_norm_constraint(T.grad(self.llh_loss, gentest.weights),
                                                                Config.TOTAL_NORM_GRAD_CLIP)
 
@@ -187,5 +191,11 @@ class GenTrain:
 
         self.train_step = theano.function([enc.input_phrase, self.reference_answers], self.llh_loss,
                                           updates=self.llh_updates + self.recurrence.get_automatic_updates())
+        self.train_step_weighted = theano.function([enc.input_phrase, self.reference_answers, self.sample_weights],
+                                                   self.llh_loss_weighted, updates=self.llh_updates + self.recurrence.get_automatic_updates())
+
         self.get_llh = theano.function([enc.input_phrase, self.reference_answers], self.llh_loss,
                                        no_default_updates=True)
+        self.get_llh_weighted = theano.function([enc.input_phrase, self.reference_answers, self.sample_weights],
+                                                self.llh_loss_weighted,
+                                                no_default_updates=True)
