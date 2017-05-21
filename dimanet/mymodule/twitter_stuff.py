@@ -120,7 +120,7 @@ def iterate_minibatches_twitter_user_chains(filename, vocab, batch_size):
             assert len(msgs) == 3
 
             batch_context.append(msgs[:2])
-            batch_answer.append(msgs[3])
+            batch_answer.append(msgs[2])
 
             if len(batch_context) == batch_size:
                 yield (phrase2matrix(batch_context, vocab, normalize=False),
@@ -144,7 +144,7 @@ def iterate_minibatches_twitter_selected_users_chains(filename, vocab, batch_siz
             assert len(msgs) == 3
 
             batch_context.append(msgs[:2])
-            batch_answer.append(msgs[3])
+            batch_answer.append(msgs[2])
             batch_uid.append(int(batch_uid))
 
             if len(batch_context) == batch_size:
