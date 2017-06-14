@@ -20,6 +20,7 @@ from lasagne.layers import (
 
 from seq2seq import Config
 from mymodule.base_stuff import phrase2matrix
+from agentnet.utils import persistence
 
 
 class DssmConfig:
@@ -130,3 +131,14 @@ class DssmModel:
 
     def similarity(self, uid, text):
         return self.predict_d_op(np.array([uid]), phrase2matrix([text], self.vocab, normalize=True))[0]
+
+    def get_similarity_tensor_for(self, utterance_tensor):
+        utt_semantic = get_output(self.l_utt_semantic, inputs={self.l_utt_enc.l_in: utterance_tensor},
+                                  deterministic=True)
+        return self._get_cosine(self.user_semantic_d, utt_semantic)
+
+    def load(self, utt_filename, user_filename):
+        persistence.load(self.l_utt_semantic, utt_filename)
+        persistence.load(self.l_user_semantic, user_filename)
+
+        return self

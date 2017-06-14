@@ -19,7 +19,7 @@ def parse_id_and_msgs(raw_line):
     return id_, msgs
 
 
-@background
+# @background
 def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2, convert_to_matrix=True,
                                 weight_fn=None):
     """File at 'filename' has the following format:
@@ -32,7 +32,7 @@ def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2, con
         batch_answer = []
         if weight_fn:
             batch_weights = []
-            
+
         for line in fin:
             id_, msgs = parse_id_and_msgs(line)
             if len(msgs) <= 1:

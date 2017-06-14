@@ -118,24 +118,30 @@ class GenTest:
         self.weights = get_all_params(self.recurrence, trainable=True)
 
         self.recurrence_outputs = get_output(self.recurrence)
+        self.recurrence_updates = self.recurrence.get_automatic_updates()
 
         ##### DECODER UNROLLED #####
         # Theano tensor which represents sequence of generated words.
         self.words_seq = self.recurrence_outputs[dec.next_words]
+        self.words_seq_greedy = get_output(self.recurrence[dec.next_words], recurrence_flags={'greedy': True})
+        self.recurrence_greedy_updates = self.recurrence.get_automatic_updates()
 
         # Theano tensor which represents decoder hidden states.
-        self.dec_cell_seq = self.recurrence_outputs[dec.new_cell]
+        # self.dec_cell_seq = self.recurrence_outputs[dec.new_cell]
         ############################
 
-        self.generate = theano.function([enc.input_phrase], [self.words_seq, self.dec_cell_seq],
-                                        updates=self.recurrence.get_automatic_updates())
+        # self.generate = theano.function([enc.input_phrase], [self.words_seq, self.dec_cell_seq],
+        #                                 updates=self.recurrence_updates+self.recurrence_greedy_updates)
+
+        self.generate = theano.function([enc.input_phrase], self.words_seq,
+                                        updates=self.recurrence_updates+self.recurrence_greedy_updates)
 
     def reply(self, phrase, max_len=25, **kwargs):
         old_value = self.n_steps.get_value()
 
         self.n_steps.set_value(max_len)
         phrase_ix = base_stuff.phrase2matrix([phrase], self.vocab, **kwargs)
-        answer_ix = self.generate(phrase_ix)[0][0]
+        answer_ix = self.generate(phrase_ix)[0]
         if self.vocab.EOS_ix in answer_ix:
             answer_ix = answer_ix[:list(answer_ix).index(self.vocab.EOS_ix)]
 
@@ -199,3 +205,12 @@ class GenTrain:
         self.get_llh_weighted = theano.function([enc.input_phrase, self.reference_answers, self.sample_weights],
                                                 self.llh_loss_weighted,
                                                 no_default_updates=True)
+
+
+class Seq2Seq:
+    def __init__(self, vocab):
+        self.vocab = vocab
+        self.enc = Enc(self.vocab)
+        self.dec = Dec(self.vocab, self.enc)
+        self.gentest = GenTest(self.vocab, self.enc, self.dec)
+        self.gentrain = GenTrain(self.vocab, self.enc, self.dec, self.gentest)

@@ -76,10 +76,9 @@ def train(args):
     if args.dssm_model_utt:
         print "Loading dssm model..."
         assert args.dssm_model_user, "Provide both arguments for initializing dssm!"
-        assert args.user_id, "If you want to use dssm, provide user-id to finetuning."
+        assert args.user_id is not None, "If you want to use dssm, provide user-id to finetuning."
         dssm_model = discriminator.DssmModel(vocab, 1000)
-        persistence.load(dssm_model.l_user_semantic, args.dssm_model_user)
-        persistence.load(dssm_model.l_utt_semantic, args.dssm_model_utt)
+        dssm_model.load(args.dssm_model_utt, args.dssm_model_user)
 
         weight_fn = lambda ans: dssm_model.similarity(args.user_id, ans)
     else:
@@ -139,10 +138,7 @@ def train(args):
                     pickle.dump(loss_history, fout)
 
             # Training stuff.
-            if weight_fn:
-                batch_loss = gentrain.train_step_weighted(batch[0], batch[1], batch[2])
-            else:
-                batch_loss = gentrain.train_step(batch[0], batch[1])
+            batch_loss = gentrain.train_step(batch[0], batch[1])
             loss_history.append(batch_loss)
 
             if (nb + 1) % args.eval_every == 0:
