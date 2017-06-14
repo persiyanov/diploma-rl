@@ -66,9 +66,9 @@ def iterate_minibatches_twitter(filename, vocab, batch_size, context_size=2, con
                     if convert_to_matrix else batch_answer[:batch_size]
                 if weight_fn:
                     yield batch_context, batch_answer, batch_weights[:batch_size]
+                    batch_weights = next_weights
                 else:
                     yield batch_context, batch_answer
-                    batch_weights = next_weights
 
                 batch_context = next_context
                 batch_answer = next_answer

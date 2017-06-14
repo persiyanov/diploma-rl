@@ -6,6 +6,8 @@ import theano.tensor as T
 from theano.gradient import disconnected_grad
 import codecs
 
+from seq2seq import Config
+
 
 class AnswerRewards(object):
     def __init__(self, vocab):
@@ -83,6 +85,8 @@ class SCTrainer(object):
     """
     Self-critical trainer [https://arxiv.org/abs/1612.00563]
     """
+    LLH_ALPHA = 10.0
+
     def __init__(self, rewards_getter, seq2seq):
         """
         Args:
@@ -92,7 +96,24 @@ class SCTrainer(object):
         self.rewards_getter = rewards_getter
         self.s2s = seq2seq
 
-        self.rewards = rewards_getter.get(self.s2s.gentest.words_seq)
-        self.baseline = rewards_getter.get(self.s2s.gentest.words_seq_greedy)
+        self.rewards = rewards_getter.get(self.s2s.gentrain.words_seq)
+        self.baseline = rewards_getter.get(self.s2s.gentrain.words_seq_greedy)
 
-        self.advantage = disconnected_grad(self.rewards-self.baseline)
+        self.advantage = disconnected_grad(self.rewards - self.baseline)  # [batch_size,]
+
+        predicted_probas = self.s2s.gentrain.predicted_probas  # [batch_size*n_steps, n_tokens]
+        self.action_probs = predicted_probas[T.arange(predicted_probas.shape[0]), self.s2s.gentrain.words_seq.ravel()]
+        self.action_probs = self.action_probs.reshape((self.advantage.shape[0], -1))  # [batch_size, n_steps]
+
+        self.weights = self.s2s.gentest.weights
+
+        self.loss = -self.advantage * self.action_probs + self.s2s.gentrain.llh_loss * self.LLH_ALPHA
+
+        self.pg_grads = lasagne.updates.total_norm_constraint(T.grad(self.loss, self.weights),
+                                                              Config.TOTAL_NORM_GRAD_CLIP)
+
+        self.pg_updates = lasagne.updates.adam(self.pg_grads, self.weights)
+
+        self.train_step = theano.function(self.rewards_getter.input_vars + [self.s2s.enc.input_phrase, self.s2s.gentrain.reference_answers],
+                                          self.loss,
+                                          updates=self.pg_updates + self.s2s.gentrain.recurrence.get_automatic_updates() + self.s2s.gentrain.recurrence_greedy_updates)

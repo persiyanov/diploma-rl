@@ -126,13 +126,6 @@ class GenTest:
         self.words_seq_greedy = get_output(self.recurrence[dec.next_words], recurrence_flags={'greedy': True})
         self.recurrence_greedy_updates = self.recurrence.get_automatic_updates()
 
-        # Theano tensor which represents decoder hidden states.
-        # self.dec_cell_seq = self.recurrence_outputs[dec.new_cell]
-        ############################
-
-        # self.generate = theano.function([enc.input_phrase], [self.words_seq, self.dec_cell_seq],
-        #                                 updates=self.recurrence_updates+self.recurrence_greedy_updates)
-
         self.generate = theano.function([enc.input_phrase], self.words_seq,
                                         updates=self.recurrence_updates+self.recurrence_greedy_updates)
 
@@ -177,6 +170,9 @@ class GenTrain:
             unroll_scan=False)
 
         self.recurrence_outputs = get_output(self.recurrence)
+        self.words_seq = self.recurrence_outputs[dec.next_words]
+        self.words_seq_greedy = get_output(self.recurrence[dec.next_words], recurrence_flags={'greedy': True})
+        self.recurrence_greedy_updates = self.recurrence.get_automatic_updates()
 
         self.P_seq = self.recurrence_outputs[dec.next_word_probs]
 

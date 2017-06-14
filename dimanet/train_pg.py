@@ -15,8 +15,6 @@ def get_parser():
     parser.add_argument('--train-data', type=str, help='Path to your training data.')
     parser.add_argument('--val-data', type=str, help='Path to you validation data.')
     parser.add_argument('--vocab-path', type=str, help='Path to your vocab tokens.')
-    parser.add_argument('--dataset', type=str, choices=['twitter', 'opensub'],
-                        help='Dataset name. "twitter" or "opensub".')
     parser.add_argument('--bsize', type=int, default=64, help='Batchsize. Default to 64.')
     parser.add_argument('--num-epochs', type=int, default=100, help='Number of epochs. Default to 100.')
     parser.add_argument('--verbosity', type=int, default=10, help='Number of batches before printing current loss. '
@@ -28,17 +26,17 @@ def get_parser():
     parser.add_argument('--weights-path', type=str, help='Path to your model weights. Set this argument if '
                                                          'you want to continue training.')
     parser.add_argument('--name', type=str, help='Name of your model. Will be used in dumping additional files.')
-    parser.add_argument('--iterator-name', type=str, default='lm-training')
-    parser.add_argument('--dssm-model-utt', type=str, default=None, help='Which dssm model to use for sample weighting.')
-    parser.add_argument('--dssm-model-user', type=str, default=None, help='Which dssm model to use for sample weighting.')
-    parser.add_argument('--user-id', type=int, default=None, help='Which user to use for finetune by dssm scores.')
+    parser.add_argument('--dssm-model-utt', type=str, help='Which dssm model to use for sample weighting.')
+    parser.add_argument('--dssm-model-user', type=str, help='Which dssm model to use for sample weighting.')
+    parser.add_argument('--user-id', type=int, help='Which user to use for finetune by dssm scores.')
 
     return parser
 
 
 def main():
     args = get_parser().parse_args()
-    assert all([args.train_data, args.val_data, args.vocab_path, args.dataset, args.name]),\
+    assert all([args.train_data, args.val_data, args.vocab_path, args.name,
+                args.dssm_model_user, args.dssm_model_utt, args.user_id]),\
         "Not all required arguments were provided."
 
     print "Running training with config:"
@@ -50,10 +48,9 @@ def main():
 
 def train(args):
     from agentnet.utils import persistence
-    from mymodule.opensub_stuff import iterate_minibatches_opensub
     from mymodule.twitter_stuff import get_iterator
     from mymodule.base_stuff import Vocab
-    from mymodule.neural import seq2seq, discriminator
+    from mymodule.neural import seq2seq, discriminator, a2c
 
     print "Network architecture config:"
     seq2seq.Config.print_dict()
@@ -63,39 +60,23 @@ def train(args):
 
     print "Reading vocab..."
     vocab = Vocab.read_from_file(args.vocab_path)
-    print "Creating encoder..."
-    enc = seq2seq.Enc(vocab)
-    print "Creating decoder..."
-    dec = seq2seq.Dec(vocab, enc)
-    print "Creating GenTest..."
-    gentest = seq2seq.GenTest(vocab, enc, dec)
-    print "Creating GenTrain..."
-    gentrain = seq2seq.GenTrain(vocab, enc, dec, gentest)
-    print "Done!!!"
 
-    if args.dssm_model_utt:
-        print "Loading dssm model..."
-        assert args.dssm_model_user, "Provide both arguments for initializing dssm!"
-        assert args.user_id is not None, "If you want to use dssm, provide user-id to finetuning."
-        dssm_model = discriminator.DssmModel(vocab, 1000)
-        dssm_model.load(args.dssm_model_utt, args.dssm_model_user)
+    print "Loading dssm model..."
+    assert args.dssm_model_user, "Provide both arguments for initializing dssm!"
+    assert args.user_id is not None, "If you want to use dssm, provide user-id to finetuning."
+    dssm_model = discriminator.DssmModel(vocab, 1000)
+    dssm_model.load(args.dssm_model_utt, args.dssm_model_user)
 
-        weight_fn = lambda ans: dssm_model.similarity(args.user_id, ans)
-    else:
-        weight_fn = None
+    print "Set up BeLikeXRewards..."
+    rewards_getter = a2c.BeLikeXRewards(vocab, dssm_model)
+    print "Set up Seq2Seq model..."
+    seq2seq_model = seq2seq.Seq2Seq(vocab)
+    print "Set up SCST trainer..."
+    scst_trainer = a2c.SCTrainer(rewards_getter, seq2seq_model)
 
-    if args.dataset == 'twitter':
-        iterator = get_iterator(args.iterator_name)
-        iterate_minibatches_train = partial(iterator, train_data_path, vocab, weight_fn=weight_fn)
-        iterate_minibatches_val = partial(iterator, val_data_path, vocab, weight_fn=weight_fn)
-    else:  # opensub
-        with open(train_data_path, 'rb') as fin:
-            train_contexts = pickle.load(fin)
-        with open(val_data_path, 'rb') as fin:
-            val_contexts = pickle.load(fin)
-
-        iterate_minibatches_train = partial(iterate_minibatches_opensub, train_contexts, vocab)
-        iterate_minibatches_val = partial(iterate_minibatches_opensub, val_contexts, vocab)
+    iterator = get_iterator('lm-training')
+    iterate_minibatches_train = partial(iterator, train_data_path, vocab)
+    iterate_minibatches_val = partial(iterator, val_data_path, vocab)
 
     f_log = open("{}_log.txt".format(args.name), 'w')
     model_weights_filename = args.weights_path or 'weights/{}_seq2seq.pkl'.format(args.name)
@@ -107,7 +88,7 @@ def train(args):
         loss_history = []
 
     try:
-        persistence.load(gentest.recurrence, model_weights_filename)
+        persistence.load(seq2seq_model.gentest.recurrence, model_weights_filename)
         print("Loaded old weights!")
     except:
         pass
@@ -119,7 +100,7 @@ def train(args):
         for nb, batch in enumerate(iterate_minibatches_train(args.bsize)):
             # Saving stuff.
             if (nb + 1) % args.save_every == 0:
-                persistence.save(gentest.recurrence, model_weights_filename)
+                persistence.save(seq2seq_model.gentest.recurrence, model_weights_filename)
                 f_log.write("\nSAVED WEIGHTS to {}!!!\n".format(model_weights_filename))
 
             # Printing stuff.
@@ -138,17 +119,14 @@ def train(args):
                     pickle.dump(loss_history, fout)
 
             # Training stuff.
-            if weight_fn:
-                batch_loss = gentrain.train_step_weighted(batch[0], batch[1], batch[2])
-            else:
-                batch_loss = gentrain.train_step(batch[0], batch[1])
+            batch_loss = scst_trainer.train_step(np.ones(args.bsize, dtype=np.int32)*args.user_id, batch[0], batch[1])
             loss_history.append(batch_loss)
 
             if (nb + 1) % args.eval_every == 0:
                 val_loss = 0.0
                 num_batches = 0
                 for nb, batch in enumerate(iterate_minibatches_val(args.bsize)):
-                    val_loss += gentrain.get_llh(batch[0], batch[1])
+                    val_loss += seq2seq_model.get_llh(batch[0], batch[1])
                     num_batches += 1
                 val_loss /= num_batches
                 if len(val_loss_history) == 0:
