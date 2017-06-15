@@ -36,7 +36,7 @@ def get_parser():
 def main():
     args = get_parser().parse_args()
     assert all([args.train_data, args.val_data, args.vocab_path, args.name,
-                args.dssm_model_user, args.dssm_model_utt, args.user_id]),\
+                args.dssm_model_user, args.dssm_model_utt, args.user_id is not None]),\
         "Not all required arguments were provided."
 
     print "Running training with config:"
@@ -119,14 +119,14 @@ def train(args):
                     pickle.dump(loss_history, fout)
 
             # Training stuff.
-            batch_loss = scst_trainer.train_step(np.ones(args.bsize, dtype=np.int32)*args.user_id, batch[0], batch[1])
+            batch_loss = scst_trainer.train_step(np.ones(batch[0].shape[0], dtype=np.int32)*args.user_id, batch[0], batch[1])
             loss_history.append(batch_loss)
 
             if (nb + 1) % args.eval_every == 0:
                 val_loss = 0.0
                 num_batches = 0
                 for nb, batch in enumerate(iterate_minibatches_val(args.bsize)):
-                    val_loss += seq2seq_model.get_llh(batch[0], batch[1])
+                    val_loss += seq2seq_model.gentrain.get_llh(batch[0], batch[1])
                     num_batches += 1
                 val_loss /= num_batches
                 if len(val_loss_history) == 0:

@@ -5,6 +5,7 @@ import theano
 import theano.tensor as T
 from theano.gradient import disconnected_grad
 import codecs
+import lasagne
 
 from seq2seq import Config
 
@@ -85,7 +86,7 @@ class SCTrainer(object):
     """
     Self-critical trainer [https://arxiv.org/abs/1612.00563]
     """
-    LLH_ALPHA = 10.0
+    LLH_ALPHA = 0.01
 
     def __init__(self, rewards_getter, seq2seq):
         """
@@ -100,14 +101,15 @@ class SCTrainer(object):
         self.baseline = rewards_getter.get(self.s2s.gentrain.words_seq_greedy)
 
         self.advantage = disconnected_grad(self.rewards - self.baseline)  # [batch_size,]
+        assert self.advantage.ndim == 1, "WHAT IS WRONG WITH ADVANTAGE FUNCTION???"
 
         predicted_probas = self.s2s.gentrain.predicted_probas  # [batch_size*n_steps, n_tokens]
-        self.action_probs = predicted_probas[T.arange(predicted_probas.shape[0]), self.s2s.gentrain.words_seq.ravel()]
+        self.action_probs = predicted_probas[T.arange(predicted_probas.shape[0]), self.s2s.gentrain.words_seq[:,:-1].ravel()]
         self.action_probs = self.action_probs.reshape((self.advantage.shape[0], -1))  # [batch_size, n_steps]
 
         self.weights = self.s2s.gentest.weights
 
-        self.loss = -self.advantage * self.action_probs + self.s2s.gentrain.llh_loss * self.LLH_ALPHA
+        self.loss = (-self.advantage[:, None] * self.action_probs).mean() + self.s2s.gentrain.llh_loss * self.LLH_ALPHA
 
         self.pg_grads = lasagne.updates.total_norm_constraint(T.grad(self.loss, self.weights),
                                                               Config.TOTAL_NORM_GRAD_CLIP)
@@ -116,4 +118,5 @@ class SCTrainer(object):
 
         self.train_step = theano.function(self.rewards_getter.input_vars + [self.s2s.enc.input_phrase, self.s2s.gentrain.reference_answers],
                                           self.loss,
-                                          updates=self.pg_updates + self.s2s.gentrain.recurrence.get_automatic_updates() + self.s2s.gentrain.recurrence_greedy_updates)
+                                          updates=self.pg_updates + self.s2s.gentrain.recurrence.get_automatic_updates() + self.s2s.gentrain.recurrence_greedy_updates,
+                                          on_unused_input='warn')

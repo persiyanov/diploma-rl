@@ -57,3 +57,10 @@ __Critic architecture (input is an lstm hidden state)__: Input(1024)->Dense(512,
 
 Finetune on user `24203097`
 
+| Model name | Perplexity | Perplexity/uid | Avg. Reward |
+--- | --- | --- | ---
+baseline LM | 4.235 | 5.249 | 0.258
+llh on user | 5.792  | 6.540 | 0.389
+dssm weighting | 4.337 | 5.358 | 0.281
+scst on dssm, alpha=0.5 | 4.760 | 5.830 | 0.294
+
