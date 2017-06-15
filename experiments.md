@@ -1,4 +1,4 @@
-## BePolite experiment
+# BePolite experiment
 
 * Finetune both encoder & decoder
 
@@ -34,7 +34,7 @@ __Critic architecture (input is an lstm hidden state)__: Input(1024)->Dense(2048
 ```
 ```
 --------
-# New seq2seq baseline on the same data, but early stopped using validation set.
+### New seq2seq baseline on the same data, but early stopped using validation set.
 | | avg-reward | perplexity
 --- | --- | ---
 __Baseline seq2seq__ | -0.136 | 3.142
@@ -48,3 +48,12 @@ __Critic architecture (input is an lstm hidden state)__: Input(1024)->Dense(512,
 | __llh-alpha__ | __avg-reward__ | __perplexity__
 5 | -0.021  | 3.297
 20 | -0.065 | 3.270
+
+```
+```
+
+------
+# BeLikeX experiment
+
+Finetune on user `24203097`
+
