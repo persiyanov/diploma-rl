@@ -90,7 +90,7 @@ def _sample_utt(arr, delete=False):
 
 
 # @background
-def iterate_minibatches_twitter_dssm(filename, vocab, batch_size, convert_to_matrix=True):
+def iterate_minibatches_twitter_dssm(filename, vocab, batch_size, convert_to_matrix=True, **kwargs):
     """File at 'filename' has the following format:
     534\tахаххаха приветосикиииа
     """
@@ -124,7 +124,7 @@ def iterate_minibatches_twitter_dssm(filename, vocab, batch_size, convert_to_mat
         yield np.array(batch_uid), batch_good_utt, batch_bad_utt
 
 
-def iterate_minibatches_twitter_user_chains(filename, vocab, batch_size, convert_to_matrix=True):
+def iterate_minibatches_twitter_user_chains(filename, vocab, batch_size, convert_to_matrix=True, **kwargs):
     """File at 'filename' has the following format:
     ахаххаха приветосикиииа\\tну привяу\\tкак делы?
     """
@@ -148,7 +148,7 @@ def iterate_minibatches_twitter_user_chains(filename, vocab, batch_size, convert
                 batch_answer = []
 
 
-def iterate_minibatches_twitter_selected_users_chains(filename, vocab, batch_size, convert_to_matrix=True):
+def iterate_minibatches_twitter_selected_users_chains(filename, vocab, batch_size, convert_to_matrix=True, **kwargs):
     """File at 'filename' has the following format:
     534\t\tахаххаха приветосикиииа\\tну дарова\\tкак делыыы??
     """

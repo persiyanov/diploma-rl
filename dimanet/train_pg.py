@@ -29,13 +29,14 @@ def get_parser():
     parser.add_argument('--dssm-model-utt', type=str, help='Which dssm model to use for sample weighting.')
     parser.add_argument('--dssm-model-user', type=str, help='Which dssm model to use for sample weighting.')
     parser.add_argument('--user-id', type=int, help='Which user to use for finetune by dssm scores.')
+    parser.add_argument('--iterator-name', type=str)
 
     return parser
 
 
 def main():
     args = get_parser().parse_args()
-    assert all([args.train_data, args.val_data, args.vocab_path, args.name,
+    assert all([args.iterator_name, args.train_data, args.val_data, args.vocab_path, args.name,
                 args.dssm_model_user, args.dssm_model_utt, args.user_id is not None]),\
         "Not all required arguments were provided."
 
@@ -74,7 +75,7 @@ def train(args):
     print "Set up SCST trainer..."
     scst_trainer = a2c.SCTrainer(rewards_getter, seq2seq_model)
 
-    iterator = get_iterator('lm-training')
+    iterator = get_iterator(args.iterator_name)
     iterate_minibatches_train = partial(iterator, train_data_path, vocab)
     iterate_minibatches_val = partial(iterator, val_data_path, vocab)
 
@@ -95,6 +96,7 @@ def train(args):
 
     print("Start training.")
     val_loss_history = []
+    avg_reward_history = []
 
     for n_epoch in range(args.num_epochs):
         for nb, batch in enumerate(iterate_minibatches_train(args.bsize)):
@@ -109,7 +111,7 @@ def train(args):
                                                                                               args.num_epochs,
                                                                                               nb + 1))
                 f_log.write("Loss (averaged with last 10 batches): {0:.5f}\n".format(np.mean(loss_history[-10:])))
-                print("Loss:\t{:.4f}".format(np.mean(loss_history[-10:])))
+                print("Loss:\t{:.4f}\tAvg. Reward:\t{:.4f}".format(np.mean(loss_history[-10:]), np.mean(avg_reward_history[-10:])))
 
                 f_log.write('****'*10+'\n')
 
@@ -119,8 +121,9 @@ def train(args):
                     pickle.dump(loss_history, fout)
 
             # Training stuff.
-            batch_loss = scst_trainer.train_step(np.ones(batch[0].shape[0], dtype=np.int32)*args.user_id, batch[0], batch[1])
+            batch_loss, batch_reward = scst_trainer.train_step(np.ones(batch[0].shape[0], dtype=np.int32)*args.user_id, batch[0], batch[1])
             loss_history.append(batch_loss)
+            avg_reward_history.append(batch_reward)
 
             if (nb + 1) % args.eval_every == 0:
                 val_loss = 0.0

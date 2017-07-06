@@ -6,6 +6,7 @@ import theano.tensor as T
 from theano.gradient import disconnected_grad
 import codecs
 import lasagne
+import os
 
 from seq2seq import Config
 
@@ -86,7 +87,7 @@ class SCTrainer(object):
     """
     Self-critical trainer [https://arxiv.org/abs/1612.00563]
     """
-    LLH_ALPHA = 0.01
+    LLH_ALPHA = float(os.environ.get('LLH_ALPHA', 1.0))
 
     def __init__(self, rewards_getter, seq2seq):
         """
@@ -117,6 +118,6 @@ class SCTrainer(object):
         self.pg_updates = lasagne.updates.adam(self.pg_grads, self.weights)
 
         self.train_step = theano.function(self.rewards_getter.input_vars + [self.s2s.enc.input_phrase, self.s2s.gentrain.reference_answers],
-                                          self.loss,
+                                          [self.loss, self.rewards.mean()],
                                           updates=self.pg_updates + self.s2s.gentrain.recurrence.get_automatic_updates() + self.s2s.gentrain.recurrence_greedy_updates,
                                           on_unused_input='warn')
