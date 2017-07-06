@@ -1,0 +1,49 @@
+This is BibTeX, Version 0.99d (TeX Live 2016)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: paper.aux
+The style file: unsrt.bst
+Database file #1: library.bib
+Warning--empty booktitle in learning-continuous-phrase-representations-for-translation-modeling
+Warning--empty booktitle in a-latent-semantic-model-with-convolutional-pooling-structure-for-information-retrieval
+You've used 28 entries,
+            1791 wiz_defined-function locations,
+            598 strings with 9803 characters,
+and the built_in function-call counts, 5714 in all, are:
+= -- 442
+> -- 394
+< -- 3
++ -- 142
+- -- 114
+* -- 375
+:= -- 995
+add.period$ -- 83
+call.type$ -- 28
+change.case$ -- 24
+chr.to.int$ -- 0
+cite$ -- 30
+duplicate$ -- 265
+empty$ -- 501
+format.name$ -- 114
+if$ -- 1243
+int.to.chr$ -- 0
+int.to.str$ -- 28
+missing$ -- 26
+newline$ -- 137
+num.names$ -- 25
+pop$ -- 65
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 132
+stack$ -- 0
+substring$ -- 128
+swap$ -- 51
+text.length$ -- 3
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 2
+while$ -- 35
+width$ -- 30
+write$ -- 298
+(There were 2 warnings)

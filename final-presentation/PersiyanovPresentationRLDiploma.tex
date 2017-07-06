@@ -1,0 +1,414 @@
+\documentclass{beamer}
+\usepackage[cp1251]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{amsmath,mathrsfs,mathtext}
+\usepackage{graphicx, epsfig}
+\usepackage{tabulary}
+\usepackage{adjustbox}
+\usetheme{Warsaw}%{Singapore}%{Warsaw}%{Darmstadt}
+\usecolortheme{sidebartab}
+%\definecolor{beamer@blendedblue}{RGB}{15,120,80}
+%----------------------------------------------------------------------------------------------------------
+\title[\hbox to 56mm{\hfill\insertframenumber\,/\,\inserttotalframenumber}]
+{Fine-tuning neural conversation models for auxilary goals by means of deep reinforcement learning}
+\author[Д.\,А. Персиянов]{\large \\Дмитрий Андреевич Персиянов}
+\institute{\large
+Московский физико-технический институт}
+
+%----------------------------------------------------------------------------------------------------------
+\begin{document}
+%----------------------------------------------------------------------------------------------------------
+\begin{frame}
+%\thispagestyle{empty}
+\titlepage
+\end{frame}
+%-----------------------------------------------------------------------------------------------------
+\begin{frame}{План}
+	\begin{itemize}
+		\item Conversational модели
+		\item RL дообучение
+		\item BePolite эксперимент
+		\item BeLikeX эксперимент
+		\item Заключение и дальнейшие исследования
+	\end{itemize}
+\end{frame}
+
+%----------------------------------------------------------------------------------------------------------
+\begin{frame}{Conversational модели}
+В последнее время рекуррентные сети успешно используется для построения языковых и sequence-to-sequence моделей. Обучение происходит на огромных корпусах текстов.
+
+\begin{center}
+	\includegraphics[scale=0.5]{imgs/seq2seq.png}
+\end{center}
+
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Conversational модели}
+
+Имея обучающий пример $(\mathbf{c}, \mathbf{a})$ контекст-ответ, где $\mathbf{c} = \{c_1,c_2,\dots,c_n\},\ \mathbf{a} = \{a_1, a_2,\dots,a_k\}$, учим модель, минимизируя лосс:
+
+$$L(\theta) = -\sum_{t=1}^{k}\log\big(p_{\theta}(a_t \vert a_1,\dots,a_{t-1}, \mathbf{c})\big)$$
+или (в RL нотации)
+$$L(\theta) = -\mathbb{E}_{\mathbf{c}, \mathbf{a} \sim \mathcal{D}} \big[\log p_{\theta}(\mathbf{a | \mathbf{c}})\big]$$
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{Conversational модели, проблемы}
+\begin{itemize}
+	\item На один и тот же вопрос два разных ответа (inconsistency)
+	\item Выучиваем, минимизируя кроссентропию, а нам иногда хочется другого:
+		\begin{itemize}
+			\item Консистентность (учитывание контекста предыдущих ответов)
+			\item \textbf{Запрет на использование каких-то слов}
+			\item \textbf{Ведение беседы в каком-то стиле}
+			\item Максимизация скорости завершения диалога
+			\item Максимизация удовлетворенности пользователя
+			\item Максимизация ...
+		\end{itemize}
+\end{itemize}
+
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{RL дообучение}
+
+Диалоговую модель $p_{\theta}(a_t \vert h_t, a_{t-1})$ можно воспринимать как политику $\pi_{\theta}(a_t \vert s_t)$.
+
+
+Необходимо найти политику $\pi(a \vert s)$, такую что $$\mathbb{E}_{\hat{\mathbf{a}}\sim\pi} \big[R_0+\gamma R_1+\cdots+\gamma^t R_t +\cdots]  \rightarrow max,$$
+где $R(\mathbf{a}, \hat{\mathbf{a}})$-- некоторая функция награды, зависящая от правильного ответа $\mathbf{a}$ из обучающей выборки и сгенерированного моделью ответа $\hat{\mathbf{a}}$.
+
+Также возможен более гранулярный вариант $R(a_t, \hat{a}_t)$.
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{BePolite эксперимент}
+\begin{itemize}
+	\item Данные: opensubtitles.org (en), 18млн пар (контекст, ответ).
+	\item Собрали 800 обсценных слов (маты, религиозные/расовые оскорбления). Обозначим это множество за $\mathcal{S}$.
+	\item Функция наград: $R(\hat{a}_t) = -\mathbb{I}[\hat{a}_t \in \mathcal{S}]$
+	\item Используем предобученную по MLE лоссу модель.
+	\item Дообучаем policy-gradient методом по $L(\theta) = -\mathbb{E}_{\mathbf{\hat{a}}\sim p_{\theta}}\big[\sum_{t=1}^kR(\hat{a}_t)\log p_{\theta}(\hat{a}_t \vert \hat{a}_{t-1}, \dots)\big]-\alpha\mathbb{E}_{\mathbf{a} \sim \mathcal{D}} \big[\log p_{\theta}(\mathbf{a})\big]$
+	\item $\alpha=5, 20$.
+	\item Обучаем 500 батчей по 64 примера.
+\end{itemize}
+
+\end{frame}
+%-----------------------------------------------------------------------------------------------------------
+\begin{frame}{BePolite эксперимент}
+
+\begin{table}[]
+	\centering
+	\caption{Метрики бейзлайна}
+	\label{bepolite-baseline-table}
+	\begin{tabular}{|c|c|}
+		\hline
+		Средняя награда                   &    Перплексия \\ \hline
+		-0.136 &  3.142  \\ \hline
+	\end{tabular}
+\end{table}
+
+\begin{table}[]
+	\centering
+	\caption{Метрики после policy-gradient дообучения}
+	\label{bepolite-a2c-table}
+	\begin{tabular}{|l|c|c|}
+		\hline
+		$\alpha$ & Средняя награда                   &    Перплексия \\ \hline
+		5 & -0.021 &  3.297  \\ \hline
+		20 & -0.065 & 3.270 \\ \hline
+	\end{tabular}
+\end{table}
+
+\end{frame}
+
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{BeLikeX эксперимент}
+
+\begin{itemize}
+	\item Данные $\mathcal{D}_g$: twitter (ru), 50 млн примеров (контекст, ответ) для бейзлайна.
+	\item Данные: twitter (ru), 1.2 млн примеров с идентификаторами пользователей.
+	\item Отобрали 1000 пользователей по частоте участия в диалогах. (Топ1 -- 9500 ответов на чьи-то твиты). Обозначим $\mathcal{D}_u$.
+	\item Обучили dssm-like модель $D(\textbf{uid}, \mathbf{a}) \in [-1, 1]$ в качестве прокси-награды.
+	\item Выбрали одного юзера -- тех. поддержка. Обозначим соотв. выборку $\mathcal{D}_s$.
+\end{itemize}
+
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: примеры фраз}
+	\begingroup
+	\renewcommand{\arraystretch}{1.5}
+	\begin{table}[]
+		\centering
+		\caption{Примеры фраз тех. подержки}
+		\adjustbox{max height=\dimexpr\textheight-5.5cm\relax,
+			max width=\textwidth}{
+		\begin{tabulary}{\textwidth}{|L|L|}
+			\hline
+			Контекст & Ответ \\
+			\hline \hline
+			Жаль, что с я связан корпоративным тарифом. Очень хочется перейти на оператора с нормальным покрытием. \textbf{EOS} и мегафон здесь не берёт, и папа джонс не везёт пиццу \textbf{EOS} & \textbf{BOS} Добрый вечер! Укажите, пожалуйста, точный адрес (нас. пункт, улицу, номер дома), в чем именно заключается сложность. Проверим. \textbf{EOS} \\
+			\hline
+			на модем который используется как роутер списаны звонки, и всякое такое чего у меня в тарифе нету... \textbf{EOS} сервис на высшем уровне! Такое сейчас время, не своруешь не проживёшь , жаль ! Хорошая была компания! \textbf{EOS} & \textbf{BOS} коллеги, обратите внимание. \textbf{EOS} \\
+			\hline
+			Добрый вечер! С какими сложностями Вы столкнулись, скажите, пожалуйста? Постараемся Вам помочь. \textbf{EOS} интернет работал только "Е" полтора часа,уже все хорошо. \textbf{EOS} & \textbf{BOS} Рады, что Ваш вопрос решился. Возникнут вопросы - обращайтесь! =\text{)} \textbf{EOS} \\
+			\hline 
+		\end{tabulary}
+	}
+	\end{table}
+	\endgroup
+	
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: DSSM}
+	
+	\begin{center}
+		\includegraphics[scale=0.3]{imgs/dssm-belikex.png}
+	\end{center}
+	
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: DSSM}
+	
+	\begin{equation} \label{eq:dssm-scoring-function}
+	D_\psi (\text{uid}, y) = \frac{u^T a}{\lVert u \rVert \lVert a \rVert},
+	\end{equation}
+	
+	\begin{equation} \label{eq:dssm-loss}
+	L(\psi) = \mathbb{E}_{\text{uid}, y_{\text{pos}}, y_{\text{neg}} \sim \mathcal{D}_u} \big(\max(0, 0.5 - D_\psi (\text{uid}, y_{\text{pos}}) +  D_\psi (\text{uid}, y_{\text{neg}}) )\big)
+	\end{equation}
+	
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: DSSM ranking}
+	\begingroup
+	\renewcommand{\arraystretch}{1.5}
+	\begin{table}[]
+		\centering
+		\caption{Фразы других юзеров, которым DSSM выдал награду 1.0}
+		\adjustbox{max height=\dimexpr\textheight-5.5cm\relax,
+			max width=\textwidth}{
+			\begin{tabular}{|l|}
+				\hline
+				Фраза\\
+				\hline \hline
+				Ответили в ДМ. \\
+				\hline
+				Приносим извинения за возможные неудобства. \\
+				\hline
+				сейчас все решим, приносим извинения за неудобства. \\
+				\hline 
+				позвольте еще раз принести Вам наши извинения за доставленные неудобства.\\
+				\hline
+				Спасибо, что помогли нам провести работу над ошибками. \\
+				\hline
+				Если Вы оставляли заявку на тестирование, появится после праздников.  \\
+				\hline
+				Ответили вам в ЛС. \\
+				\hline
+				Оператор видит ситуацию происходящую с номером и сможет вам помочь. \\
+				\hline
+			\end{tabular}
+		}
+	\end{table}
+	\endgroup
+	
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+\begin{frame}{BeLikeX эксперимент: SCST дообучение}
+
+\begin{equation} \label{eq:rl-scst}
+\Delta \theta = \nabla_\theta \log p_{\theta}(\hat{y} | \mathbf{h^{\text{dec}}_0}) \cdot (D(\hat{y}) - D(\overline{y})),
+\end{equation}
+
+где $\overline{y}$ -- жадный ответ, а $\hat{y}$ -- просемплированный из политики.
+
+\end{frame}
+
+
+%------------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: результаты}
+\begin{table}[]
+	\centering
+	\caption{Перплексия.}
+	\label{belikex-table}
+	\begingroup
+	\renewcommand{\arraystretch}{1.8}
+	\begin{table}
+		\centering
+		\begin{tabular}{|l|c|c|}
+			\hline
+			& $\mathcal{D}_g$                   &   $\mathcal{D}_s$ \\
+			\hline 
+			BASELINE & 6.330 & 14.269 \\ 
+			\hline
+			LLH-FINETUNED & 24.308 & 1.040 \\
+			\hline 
+			SCST-ON-SUPPORT & 17.574 & 1.175 \\
+			\hline
+			SCST-ON-USERS & 8.178 & 26.691 \\
+			\hline
+			SCST-ON-HIGH-REWARDED & 24.305 & 1.283 \\
+			\hline
+		\end{tabular}
+	\end{table}
+	\endgroup
+\end{table}
+
+\end{frame}
+
+%----------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: результаты}
+	\begingroup
+	\renewcommand{\arraystretch}{1.8}
+	\begin{table}
+		\centering
+		\begin{tabular}{|l|c|c|}
+			\hline
+			& $\mathcal{D}_g$                   &   $\mathcal{D}_s$ \\
+			\hline 
+			BASELINE & 0.0130 & 0.0484 \\ 
+			\hline
+			LLH-FINETUNED & 0.6743 & 0.9546 \\
+			\hline 
+			SCST-ON-SUPPORT & 0.7798 & 0.8967 \\
+			\hline
+			SCST-ON-USERS & 0.0192 & 0.0183 \\
+			\hline
+			SCST-ON-HIGH-REWARDED & 0.3357 & 0.9331 \\
+			\hline
+		\end{tabular}
+		\caption{Значения avgD для моделей из эксперимента BeLikeX.}
+		\label{table:belikex-dssm-score}
+	\end{table}
+	\endgroup
+	
+\end{frame}
+
+%----------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: примеры ответов}
+	\begingroup
+	\renewcommand{\arraystretch}{1.5}
+	\begin{table}[]
+		\centering
+		\caption{Примеры ответов моделей.}
+		\adjustbox{max height=\dimexpr\textheight-5.5cm\relax,
+			max width=\textwidth}{
+			\label{table:belikex-model-answers}
+			\begin{tabulary}{\textwidth}{|L|L|L|}
+				\hline
+				Контекст & SCST-ON-SUPPORT & SCST-ON-HIGH-REWARDED \\
+				\hline \hline
+				привет! \textbf{EOS} как дела? & коллеги помогите , пожалуйста , только в личные сообщения ( город , улица , поселок , лк ) & у нас нет света , но хорошо . \\
+				\hline
+				интернет не работает что делать?' \textbf{EOS} & коллеги помогите , пожалуйста , более подробно какие сложности с использованием . & здравствуйте ! если возникли сложности , то вы можете проверить баланс ? \\ 
+				\hline
+			\end{tabulary}
+		}
+	\end{table}
+	\endgroup
+	
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: примеры ответов}
+	\begingroup
+	\renewcommand{\arraystretch}{1.5}
+	\begin{table}[]
+		\centering
+		\caption{Примеры ответов моделей.}
+		\adjustbox{max height=\dimexpr\textheight-5.5cm\relax,
+			max width=\textwidth}{
+			\begin{tabulary}{\textwidth}{|L|L|L|}
+				\hline
+				что такое любовь ? \textbf{EOS} & коллеги, пожалуйста , базовые всей компании & все ахахахаххахаха \\
+				\hline 
+				здравствуйте ! с какими сложностями столкнулись ? \textbf{EOS} если будут вопросы , пишите ! & если возникнут вопросы , пожалуйста , обращайтесь & если будут вопросы , пишите ! \\
+				\hline
+				какой у вас регион ? \textbf{EOS} томская область & какой у вас регион ? & проверьте , пожалуйста \\
+				\hline
+			\end{tabulary}
+		}
+	\end{table}
+	\endgroup
+	
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+
+\begin{frame}{BeLikeX эксперимент: примеры ответов}
+	\begingroup
+	\renewcommand{\arraystretch}{1.5}
+	\begin{table}[]
+		\centering
+		\caption{Примеры ответов моделей.}
+		\adjustbox{max height=\dimexpr\textheight-5.5cm\relax,
+			max width=\textwidth}{
+			\begin{tabulary}{\textwidth}{|L|L|L|}
+				\hline
+				какой у вас регион ? \textbf{EOS} как дела ? & проверьте , пожалуйста & :d все хорошо , но ограничения к сведению \\
+				\hline
+				ты любишь учиться ? \textbf{EOS} я обожаю ! а ты ? & какой у вас регион ? & нет , но к сожалению , не могу сказать одно время , да . \\
+				\hline
+			\end{tabulary}
+		}
+	\end{table}
+	\endgroup
+	
+\end{frame}
+%------------------------------------------------------------------------------------------------------------
+
+
+
+\begin{frame}{Похожие работы}
+	\begin{itemize}
+		\item Deep Reinforcement Learning for Dialogue Generation (https://arxiv.org/pdf/1612.00563.pdf) -- дообучают RL-ом, но борются с проблемой затухания диалогов и общих ответов.
+		\item A Persona-Based Neural Conversation Model (https://nlp.stanford.edu/pubs/jiwei2016Persona.pdf) -- выучивают ембеддинги для пользователей и подают на вход декодеру. \newline
+	\end{itemize}
+\end{frame}
+
+
+%----------------------------------------------------------------------------------------------------------
+
+\begin{frame}{Похожие работы}
+	\begin{itemize}
+		\item Deep Reinforcement Learning for Dialogue Generation (https://arxiv.org/pdf/1612.00563.pdf) -- дообучают RL-ом, но борются с проблемой затухания диалогов и общих ответов.
+	\end{itemize}
+\end{frame}
+
+
+%----------------------------------------------------------------------------------------------------------
+
+\begin{frame}{Похожие работы}
+	\begin{itemize}
+		\item A Persona-Based Neural Conversation Model (https://nlp.stanford.edu/pubs/jiwei2016Persona.pdf) -- выучивают ембеддинги для пользователей и подают на вход декодеру.
+	\end{itemize}
+
+\begin{center}
+	\includegraphics[scale=0.4]{imgs/persona-based.png}
+\end{center}
+
+\end{frame}
+
+
+%----------------------------------------------------------------------------------------------------------
+\begin{frame}{Заключение и дальнейшие исследования}
+
+\begin{itemize}
+	\item RL помогает быстро и эффективно дообучать модели под разные требования, выразимые в виде функции наград. \newline
+	
+	\item BePolite: посмотреть как запрет одних слов влияет на частоту использования семантически близких, но которых нет в словаре
+	\item BeLikeX: использовать дискриминатор, обученный лишь на одном юзере, как в GAN'ах. Пытаться обмануть его.
+	\item BeLikeX: обусловить дискриминатор на контекст, посмотреть что получится.
+\end{itemize}
+\end{frame}
+
+
+%----------------------------------------------------------------------------------------------------------
+\end{document} 
